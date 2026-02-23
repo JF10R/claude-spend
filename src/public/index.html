@@ -121,11 +121,30 @@
   .logo-mark svg { width: 22px; height: 22px; }
   .header h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
   .header-right { display: flex; align-items: center; gap: 14px; }
-  .date-range {
-    color: var(--text-tertiary); font-size: 13px; font-weight: 500;
-    background: var(--white); padding: 6px 14px; border-radius: 20px;
-    border: 1px solid var(--border);
+  .date-filter {
+    display: flex; align-items: center; gap: 6px;
   }
+  .date-filter input[type="date"] {
+    color: var(--text-secondary); font-size: 13px; font-weight: 500;
+    font-family: var(--font);
+    background: var(--white); padding: 5px 10px; border-radius: 20px;
+    border: 1px solid var(--border); outline: none;
+    transition: border-color 0.2s;
+    color-scheme: light;
+  }
+  .date-filter input[type="date"]:focus {
+    border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+  .date-filter-sep {
+    color: var(--text-tertiary); font-size: 13px; font-weight: 500;
+  }
+  .date-filter-reset {
+    background: none; border: none; color: var(--indigo);
+    font-size: 13px; font-weight: 600; font-family: var(--font);
+    cursor: pointer; padding: 4px 8px; border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .date-filter-reset:hover { background: rgba(99,102,241,0.08); }
   .refresh-btn {
     background: var(--white); border: 1px solid var(--border);
     color: var(--text-secondary); padding: 7px 16px; border-radius: 20px;
@@ -629,7 +648,12 @@
       <h1>Claude Spend</h1>
     </div>
     <div class="header-right">
-      <span id="dateRange" class="date-range"></span>
+      <div class="date-filter">
+        <input type="date" id="filterFrom" title="From date" onchange="applyDateFilter()">
+        <span class="date-filter-sep">to</span>
+        <input type="date" id="filterTo" title="To date" onchange="applyDateFilter()">
+        <button class="date-filter-reset" id="dateReset" onclick="resetDateFilter()" style="display:none">Reset</button>
+      </div>
       <button class="refresh-btn" onclick="refreshData()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         Refresh
@@ -767,6 +791,108 @@ let searchQuery = '';
 let currentPage = 1;
 const PAGE_SIZE = 25;
 let showModelVersion = true;
+let filterFrom = null;
+let filterTo = null;
+
+function getFilteredData() {
+  if (!DATA) return DATA;
+  if (!filterFrom && !filterTo) return DATA;
+
+  const from = filterFrom || '0000-00-00';
+  const to = filterTo || '9999-99-99';
+
+  const sessions = DATA.sessions.filter(s => s.date >= from && s.date <= to);
+  const dailyUsage = DATA.dailyUsage.filter(d => d.date >= from && d.date <= to);
+
+  // Rebuild modelBreakdown from filtered sessions
+  const modelMap = {};
+  for (const s of sessions) {
+    for (const q of (s.queries || [])) {
+      const m = q.model || s.model;
+      if (!modelMap[m]) modelMap[m] = { model: m, totalTokens: 0, inputTokens: 0, outputTokens: 0, count: 0 };
+      modelMap[m].totalTokens += q.totalTokens || 0;
+      modelMap[m].inputTokens += q.inputTokens || 0;
+      modelMap[m].outputTokens += q.outputTokens || 0;
+      modelMap[m].count++;
+    }
+  }
+  const modelBreakdown = Object.values(modelMap).sort((a, b) => b.totalTokens - a.totalTokens);
+
+  // Rebuild projectBreakdown from filtered sessions
+  const projMap = {};
+  for (const s of sessions) {
+    const key = s.project;
+    if (!projMap[key]) projMap[key] = { project: key, totalTokens: 0, inputTokens: 0, outputTokens: 0, sessionCount: 0, queryCount: 0, modelMap: {}, prompts: [] };
+    const p = projMap[key];
+    p.totalTokens += s.totalTokens;
+    p.inputTokens += s.inputTokens;
+    p.outputTokens += s.outputTokens;
+    p.sessionCount++;
+    p.queryCount += s.queryCount;
+    for (const q of (s.queries || [])) {
+      const m = q.model || s.model;
+      if (!p.modelMap[m]) p.modelMap[m] = { model: m, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+      p.modelMap[m].inputTokens += q.inputTokens || 0;
+      p.modelMap[m].outputTokens += q.outputTokens || 0;
+      p.modelMap[m].totalTokens += (q.inputTokens || 0) + (q.outputTokens || 0);
+      if (q.userPrompt) {
+        p.prompts.push({ prompt: q.userPrompt, totalTokens: q.totalTokens || 0, inputTokens: q.inputTokens || 0, outputTokens: q.outputTokens || 0, model: m, sessionId: s.sessionId, toolCounts: q.toolCounts || {}, continuations: q.continuations || 0 });
+      }
+    }
+  }
+  const projectBreakdown = Object.values(projMap).sort((a, b) => b.totalTokens - a.totalTokens).map(p => ({
+    ...p,
+    modelBreakdown: Object.values(p.modelMap).sort((a, b) => b.totalTokens - a.totalTokens),
+    topPrompts: p.prompts.sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 10)
+  }));
+
+  // Rebuild topPrompts from filtered sessions
+  const allPrompts = [];
+  for (const s of sessions) {
+    for (const q of (s.queries || [])) {
+      if (q.userPrompt) {
+        allPrompts.push({ prompt: q.userPrompt, totalTokens: q.totalTokens || 0, inputTokens: q.inputTokens || 0, outputTokens: q.outputTokens || 0, model: q.model || s.model, date: s.date, sessionId: s.sessionId });
+      }
+    }
+  }
+  const topPrompts = allPrompts.sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 20);
+
+  // Recompute totals
+  const totalInputTokens = sessions.reduce((s, x) => s + x.inputTokens, 0);
+  const totalOutputTokens = sessions.reduce((s, x) => s + x.outputTokens, 0);
+  const totalTokens = totalInputTokens + totalOutputTokens;
+  const totalSessions = sessions.length;
+  const totalQueries = sessions.reduce((s, x) => s + x.queryCount, 0);
+  const totals = {
+    ...DATA.totals,
+    totalTokens, totalInputTokens, totalOutputTokens,
+    totalSessions, totalQueries,
+    avgTokensPerSession: totalSessions ? Math.round(totalTokens / totalSessions) : 0,
+    avgTokensPerQuery: totalQueries ? Math.round(totalTokens / totalQueries) : 0,
+    dateRange: DATA.totals.dateRange
+  };
+
+  return { sessions, dailyUsage, modelBreakdown, projectBreakdown, topPrompts, totals, insights: DATA.insights };
+}
+
+function applyDateFilter() {
+  const fromVal = document.getElementById('filterFrom').value;
+  const toVal = document.getElementById('filterTo').value;
+  const range = DATA.totals.dateRange;
+  filterFrom = (fromVal && fromVal !== range.from) ? fromVal : null;
+  filterTo = (toVal && toVal !== range.to) ? toVal : null;
+  document.getElementById('dateReset').style.display = (filterFrom || filterTo) ? '' : 'none';
+  currentPage = 1;
+  render();
+}
+
+function resetDateFilter() {
+  filterFrom = null;
+  filterTo = null;
+  document.getElementById('dateReset').style.display = 'none';
+  currentPage = 1;
+  render();
+}
 
 function fmt(n) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
@@ -896,6 +1022,20 @@ async function refreshData() {
 function render() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+
+  // Populate date filter inputs
+  const range = DATA.totals.dateRange;
+  if (range) {
+    const fromInput = document.getElementById('filterFrom');
+    const toInput = document.getElementById('filterTo');
+    fromInput.min = range.from;
+    fromInput.max = range.to;
+    toInput.min = range.from;
+    toInput.max = range.to;
+    fromInput.value = filterFrom || range.from;
+    toInput.value = filterTo || range.to;
+  }
+
   renderStats();
   renderInsights();
   renderDailyChart();
@@ -907,9 +1047,8 @@ function render() {
 
 // Stats
 function renderStats() {
-  const t = DATA.totals;
-  const range = t.dateRange ? `${formatDate(t.dateRange.from)} - ${formatDate(t.dateRange.to)}` : '';
-  document.getElementById('dateRange').textContent = range;
+  const d = getFilteredData();
+  const t = d.totals;
 
   const cards = [
     { label: 'Total Usage', value: fmt(t.totalTokens), sub: `${fmt(t.totalInputTokens)} read by Claude + ${fmt(t.totalOutputTokens)} written back`,
@@ -961,8 +1100,8 @@ function renderInsights() {
 function renderDailyChart() {
   const canvas = document.getElementById('dailyChart');
   const ctx = canvas.getContext('2d');
-  const data = DATA.dailyUsage;
-  if (!data.length) return;
+  const data = getFilteredData().dailyUsage;
+  if (!data.length) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
 
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.parentElement.clientWidth - 48;
@@ -1045,8 +1184,8 @@ function roundedRect(ctx, x, y, w, h, r) {
 function renderModelChart() {
   const canvas = document.getElementById('modelChart');
   const ctx = canvas.getContext('2d');
-  const data = DATA.modelBreakdown;
-  if (!data.length) return;
+  const data = getFilteredData().modelBreakdown;
+  if (!data.length) { ctx.clearRect(0, 0, canvas.width, canvas.height); document.getElementById('modelLegend').innerHTML = ''; return; }
 
   const dpr = window.devicePixelRatio || 1;
   const size = Math.min(180, canvas.parentElement.clientWidth - 48);
@@ -1139,7 +1278,7 @@ function buildDrawerContent(p) {
 
 // Project breakdown
 function renderProjectBreakdown() {
-  const projects = DATA.projectBreakdown;
+  const projects = getFilteredData().projectBreakdown;
   if (!projects || !projects.length) return;
 
   const countEl = document.getElementById('projectsCount');
@@ -1191,7 +1330,7 @@ function renderProjectBreakdown() {
 
 // Top prompts
 function renderTopPrompts() {
-  const prompts = DATA.topPrompts;
+  const prompts = getFilteredData().topPrompts;
   if (!prompts.length) return;
   const maxTokens = prompts[0].totalTokens;
 
@@ -1217,7 +1356,7 @@ function renderTopPrompts() {
 
 // Sessions (note: all data is locally parsed from user's own JSONL files, no untrusted input)
 function renderSessions() {
-  let sessions = [...DATA.sessions];
+  let sessions = [...getFilteredData().sessions];
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     sessions = sessions.filter(s =>
