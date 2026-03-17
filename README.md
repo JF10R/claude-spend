@@ -35,6 +35,20 @@ That's it. Opens a dashboard in your browser.
 - Surfaces insights like which prompts cost the most and usage patterns
 
 
+## Fork Features
+
+This fork adds the following on top of the [upstream](https://github.com/writetoaniketparihar-collab/claude-spend):
+
+- **Cost Estimation** — estimated dollar costs per session, project, and model using Anthropic's pricing (with auto-fetch from the pricing page for new models)
+- **Session Archive** — delta-syncs session files to `~/.claude-spend/sessions/` as brotli-compressed `.br` files so data survives Claude Code's ~30-day cleanup; the dashboard seamlessly merges live + archived sessions
+- **Dark Mode** — system-preference-aware dark/light theme toggle with full contrast and accessibility fixes
+- **Date Range Filter** — filter all dashboard views by date range
+- **Project Breakdown** — per-project token/cost stats with expandable model and prompt detail
+- **User Prompt Count** — distinguishes your messages from tool-call round-trips
+- **Pagination** — paginated session list for large histories
+- **Loading Progress** — streaming progress bar during initial parse
+- **Dynamic Pricing** — auto-fetches latest model pricing from Anthropic; caches for 7 days
+
 ## Options
 
 ```
