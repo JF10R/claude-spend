@@ -152,6 +152,16 @@
     transition: background 0.15s;
   }
   .date-filter-reset:hover { background: rgba(99,102,241,0.08); }
+  .archive-badge {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    white-space: nowrap;
+    cursor: help;
+  }
   .refresh-btn {
     background: var(--white); border: 1px solid var(--border);
     color: var(--text-secondary); padding: 7px 16px; border-radius: 20px;
@@ -738,6 +748,7 @@
         <input type="date" id="filterTo" title="To date" onchange="applyDateFilter()">
         <button class="date-filter-reset" id="dateReset" onclick="resetDateFilter()" style="display:none">Reset</button>
       </div>
+      <span id="archiveBadge" class="archive-badge" style="display:none" title=""></span>
       <button class="refresh-btn" onclick="refreshData()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         Refresh
@@ -1190,6 +1201,17 @@ function render() {
     toInput.max = range.to;
     fromInput.value = filterFrom || range.from;
     toInput.value = filterTo || range.to;
+  }
+
+  // Archive badge
+  const badge = document.getElementById('archiveBadge');
+  if (DATA.archiveInfo && DATA.archiveInfo.restoredFromArchive > 0) {
+    const sizeMB = (DATA.archiveInfo.archiveSizeBytes / (1024 * 1024)).toFixed(1);
+    badge.textContent = `+${DATA.archiveInfo.restoredFromArchive} archived`;
+    badge.title = `${DATA.archiveInfo.totalArchived} sessions archived (${sizeMB} MB compressed). ${DATA.archiveInfo.restoredFromArchive} restored from archive (no longer on disk).`;
+    badge.style.display = '';
+  } else if (DATA.archiveInfo && DATA.archiveInfo.totalArchived > 0) {
+    badge.style.display = 'none'; // all live, nothing extra from archive
   }
 
   renderStats();

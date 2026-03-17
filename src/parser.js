@@ -2,6 +2,51 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
+const zlib = require('zlib');
+
+// Archive: individual brotli-compressed JSONL files, delta-copied from ~/.claude/projects/
+const ARCHIVE_SESSIONS_DIR = path.join(os.homedir(), '.claude-spend', 'sessions');
+const BROTLI_QUALITY = 6; // best balance of size (86%) vs speed
+
+/**
+ * Delta-sync: copy new JSONL files from live dir to archive (brotli-compressed).
+ * Existing files are skipped (incremental, like rsync --ignore-existing).
+ * Originals are never moved or modified.
+ */
+function syncSessionsToArchive(projectsDir) {
+  fs.mkdirSync(ARCHIVE_SESSIONS_DIR, { recursive: true });
+
+  const projectDirs = fs.readdirSync(projectsDir).filter(d => {
+    try { return fs.statSync(path.join(projectsDir, d)).isDirectory(); } catch { return false; }
+  });
+
+  let copied = 0;
+  for (const projectDir of projectDirs) {
+    const srcDir = path.join(projectsDir, projectDir);
+    const files = fs.readdirSync(srcDir).filter(f => f.endsWith('.jsonl'));
+
+    for (const file of files) {
+      const destDir = path.join(ARCHIVE_SESSIONS_DIR, projectDir);
+      const destFile = path.join(destDir, file + '.br');
+      // Also accept legacy .gz files as "already archived"
+      const legacyGz = path.join(destDir, file + '.gz');
+      if (fs.existsSync(destFile) || fs.existsSync(legacyGz)) continue;
+
+      fs.mkdirSync(destDir, { recursive: true });
+      const content = fs.readFileSync(path.join(srcDir, file));
+      const compressed = zlib.brotliCompressSync(content, {
+        params: { [zlib.constants.BROTLI_PARAM_QUALITY]: BROTLI_QUALITY },
+      });
+      // Atomic write
+      const tmpFile = destFile + '.tmp';
+      fs.writeFileSync(tmpFile, compressed);
+      fs.renameSync(tmpFile, destFile);
+      copied++;
+    }
+  }
+
+  return copied;
+}
 
 function getClaudeDir() {
   return path.join(os.homedir(), '.claude');
@@ -14,6 +59,28 @@ function pathToProjectDir(absPath) {
 
 async function parseJSONLFile(filePath) {
   const lines = [];
+
+  // Compressed archive files: decompress and parse synchronously
+  if (filePath.endsWith('.br')) {
+    const compressed = fs.readFileSync(filePath);
+    const text = zlib.brotliDecompressSync(compressed).toString('utf-8');
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try { lines.push(JSON.parse(line)); } catch {}
+    }
+    return lines;
+  }
+  if (filePath.endsWith('.gz')) {
+    const compressed = fs.readFileSync(filePath);
+    const text = zlib.gunzipSync(compressed).toString('utf-8');
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try { lines.push(JSON.parse(line)); } catch {}
+    }
+    return lines;
+  }
+
+  // Regular JSONL: stream for memory efficiency
   const stream = fs.createReadStream(filePath, { encoding: 'utf-8' });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
@@ -287,10 +354,19 @@ async function parseAllSessions(onProgress) {
     }
   }
 
+  // Delta-sync: copy new JSONL files to archive (gzipped, incremental)
+  report({ stage: 'archiving', message: 'Syncing sessions to archive...' });
+  let archiveCopied = 0;
+  try {
+    archiveCopied = syncSessionsToArchive(projectsDir);
+  } catch {
+    // Non-fatal: archive sync failure shouldn't block the dashboard
+  }
+
   report({ stage: 'scanning', message: 'Scanning project directories...' });
 
   const projectDirs = fs.readdirSync(projectsDir).filter(d => {
-    return fs.statSync(path.join(projectsDir, d)).isDirectory();
+    try { return fs.statSync(path.join(projectsDir, d)).isDirectory(); } catch { return false; }
   });
 
   const sessions = [];
@@ -298,14 +374,38 @@ async function parseAllSessions(onProgress) {
   const modelMap = {};
   const allPrompts = []; // for "most expensive prompts" across all sessions
 
-  // Count total files for progress
+  // Build file list from live sessions
   let totalFiles = 0;
   const projectFiles = [];
+  const liveSessionIds = new Set();
   for (const projectDir of projectDirs) {
     const dir = path.join(projectsDir, projectDir);
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl'));
     totalFiles += files.length;
     projectFiles.push({ projectDir, dir, files });
+    for (const f of files) liveSessionIds.add(path.basename(f, '.jsonl'));
+  }
+
+  // Also include archived sessions not present in live data
+  let archivedCount = 0;
+  if (fs.existsSync(ARCHIVE_SESSIONS_DIR)) {
+    const archiveDirs = fs.readdirSync(ARCHIVE_SESSIONS_DIR).filter(d => {
+      try { return fs.statSync(path.join(ARCHIVE_SESSIONS_DIR, d)).isDirectory(); } catch { return false; }
+    });
+    for (const projectDir of archiveDirs) {
+      const dir = path.join(ARCHIVE_SESSIONS_DIR, projectDir);
+      const allCompressed = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl.br') || f.endsWith('.jsonl.gz'));
+      // Only include files whose sessionId is NOT in live data
+      const archiveOnly = allCompressed.filter(f => {
+        const sid = f.endsWith('.jsonl.br') ? path.basename(f, '.jsonl.br') : path.basename(f, '.jsonl.gz');
+        return !liveSessionIds.has(sid);
+      });
+      if (archiveOnly.length > 0) {
+        totalFiles += archiveOnly.length;
+        archivedCount += archiveOnly.length;
+        projectFiles.push({ projectDir, dir, files: archiveOnly });
+      }
+    }
   }
 
   let filesProcessed = 0;
@@ -314,7 +414,12 @@ async function parseAllSessions(onProgress) {
   for (const { projectDir, dir, files } of projectFiles) {
     for (const file of files) {
       const filePath = path.join(dir, file);
-      const sessionId = path.basename(file, '.jsonl');
+      // Handle .jsonl, .jsonl.br, and legacy .jsonl.gz filenames
+      const sessionId = file.endsWith('.jsonl.br')
+        ? path.basename(file, '.jsonl.br')
+        : file.endsWith('.jsonl.gz')
+          ? path.basename(file, '.jsonl.gz')
+          : path.basename(file, '.jsonl');
 
       let entries;
       try {
@@ -583,6 +688,32 @@ async function parseAllSessions(onProgress) {
   // Generate insights
   const insights = generateInsights(sessions, allPrompts, grandTotals);
 
+  // Archive stats
+  let archiveSizeBytes = 0;
+  let archiveFileCount = 0;
+  try {
+    if (fs.existsSync(ARCHIVE_SESSIONS_DIR)) {
+      const countFiles = (dir) => {
+        let count = 0, size = 0;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            const sub = countFiles(full);
+            count += sub.count;
+            size += sub.size;
+          } else if (entry.name.endsWith('.jsonl.br') || entry.name.endsWith('.jsonl.gz')) {
+            count++;
+            size += fs.statSync(full).size;
+          }
+        }
+        return { count, size };
+      };
+      const stats = countFiles(ARCHIVE_SESSIONS_DIR);
+      archiveFileCount = stats.count;
+      archiveSizeBytes = stats.size;
+    }
+  } catch {}
+
   return {
     sessions,
     dailyUsage,
@@ -591,6 +722,13 @@ async function parseAllSessions(onProgress) {
     topPrompts,
     totals: grandTotals,
     insights,
+    archiveInfo: {
+      totalArchived: archiveFileCount,
+      newlyCopied: archiveCopied,
+      restoredFromArchive: archivedCount,
+      archiveSizeBytes,
+      archivePath: ARCHIVE_SESSIONS_DIR,
+    },
   };
 }
 
