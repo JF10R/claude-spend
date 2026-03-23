@@ -333,9 +333,14 @@ async function parseAllSessions(onProgress) {
   const report = onProgress || (() => {});
   const claudeDir = getClaudeDir();
   const projectsDir = path.join(claudeDir, 'projects');
+  const warnings = [];
+
+  if (!fs.existsSync(claudeDir)) {
+    return { sessions: [], dailyUsage: [], modelBreakdown: [], projectBreakdown: [], topPrompts: [], totals: { totalSessions: 0, totalQueries: 0, userPromptCount: 0, totalTokens: 0, totalInputTokens: 0, totalOutputTokens: 0, costWithCache: 0, costWithoutCache: 0, avgTokensPerQuery: 0, avgTokensPerSession: 0, dateRange: null }, insights: [], warnings: [{ level: 'error', message: 'Claude Code data directory not found at ' + claudeDir + '. Have you used Claude Code yet?' }], archiveInfo: null };
+  }
 
   if (!fs.existsSync(projectsDir)) {
-    return { sessions: [], dailyUsage: [], modelBreakdown: [], topPrompts: [], totals: {} };
+    return { sessions: [], dailyUsage: [], modelBreakdown: [], projectBreakdown: [], topPrompts: [], totals: { totalSessions: 0, totalQueries: 0, userPromptCount: 0, totalTokens: 0, totalInputTokens: 0, totalOutputTokens: 0, costWithCache: 0, costWithoutCache: 0, avgTokensPerQuery: 0, avgTokensPerSession: 0, dateRange: null }, insights: [], warnings: [{ level: 'warning', message: 'No projects found in ' + projectsDir + '. Start using Claude Code to see usage data.' }], archiveInfo: null };
   }
 
   report({ stage: 'history', message: 'Reading conversation history...' });
@@ -506,9 +511,12 @@ async function parseAllSessions(onProgress) {
       // Daily
       if (date !== 'unknown') {
         if (!dailyMap[date]) {
-          dailyMap[date] = { date, inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, queries: 0 };
+          dailyMap[date] = { date, inputTokens: 0, baseInputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, queries: 0 };
         }
         dailyMap[date].inputTokens += inputTokens;
+        dailyMap[date].baseInputTokens += baseInputTokens;
+        dailyMap[date].cacheWriteTokens += cacheWriteTokens;
+        dailyMap[date].cacheReadTokens += cacheReadTokens;
         dailyMap[date].outputTokens += outputTokens;
         dailyMap[date].totalTokens += totalTokens;
         dailyMap[date].sessions += 1;
@@ -722,6 +730,7 @@ async function parseAllSessions(onProgress) {
     topPrompts,
     totals: grandTotals,
     insights,
+    warnings,
     archiveInfo: {
       totalArchived: archiveFileCount,
       newlyCopied: archiveCopied,
@@ -744,7 +753,7 @@ function generateInsights(sessions, allPrompts, totals) {
       id: 'vague-prompts',
       type: 'warning',
       title: 'Short, vague messages are costing you the most',
-      description: `${shortExpensive.length} times you sent a short message like ${examples.map(e => '"' + e + '"').join(', ')} -- and each time, Claude used over 100K tokens to respond. That adds up to ${fmt(totalWasted)} tokens total. When you say just "Yes" or "Do it", Claude doesn't know exactly what you want, so it tries harder -- reading more files, running more tools, making more attempts. Each of those steps re-sends the entire conversation, which multiplies the cost.`,
+      description: `${shortExpensive.length} times you sent a short message like ${examples.map(e => '"' + e + '"').join(', ')} -- and each message burned at least 100K tokens just trying to figure out what you wanted. Across all ${shortExpensive.length} messages, that adds up to ${fmt(totalWasted)} tokens total -- spent re-reading your conversation, searching files, and making multiple attempts because the instruction was too vague.`,
       action: 'Try being specific. Instead of "Yes", say "Yes, update the login page and run the tests." It gives Claude a clear target, so it finishes faster and uses fewer tokens.',
     });
   }
@@ -931,10 +940,42 @@ function generateInsights(sessions, allPrompts, totals) {
     }
   }
 
+  // 11. Smart /clear recommendation based on cost inflection
+  const clearCandidates = sessions.filter(s => s.queries.length >= 10);
+  const inflections = [];
+  for (const s of clearCandidates) {
+    const costs = s.queries.map(q => {
+      const result = computeCost(q.model, q.baseInputTokens, q.cacheWriteTokens, q.cacheReadTokens, q.outputTokens);
+      return result.withCache;
+    });
+    const baselineSlice = costs.slice(0, 5);
+    const baseline = baselineSlice.reduce((a, b) => a + b, 0) / baselineSlice.length;
+    if (baseline <= 0) continue;
+    for (let i = 2; i < costs.length; i++) {
+      const rolling = (costs[i - 2] + costs[i - 1] + costs[i]) / 3;
+      if (rolling > baseline * 2) {
+        inflections.push(i - 1);
+        break;
+      }
+    }
+  }
+  if (inflections.length >= 2) {
+    const sorted = [...inflections].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    insights.push({
+      id: 'smart-clear',
+      type: 'info',
+      title: 'Consider /clear around turn ' + median,
+      description: 'In ' + inflections.length + ' of your longer conversations, per-turn costs spiked after about ' + median + ' turns. This happens because Claude re-reads the entire conversation each turn, and the cost grows with context length.',
+      action: 'Try typing /clear when you switch to a new sub-task within a conversation. It resets context and keeps costs linear instead of exponential.',
+    });
+  }
+
   return insights;
 }
 
 function fmt(n) {
+  if (n == null || isNaN(n)) return '0';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 10_000) return (n / 1_000).toFixed(0) + 'K';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';

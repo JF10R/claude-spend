@@ -276,11 +276,40 @@
   }
 
   /* Token explainer */
-  .token-explainer {
-    font-size: 13px; color: var(--text-tertiary); font-weight: 500;
-    text-align: center; padding: 10px 20px; margin: -16px 0 28px;
-    line-height: 1.5;
-  }
+  .token-explainer-full { background: var(--white); border-radius: 16px; padding: 0; margin-bottom: 24px; border: 1px solid var(--border); overflow: hidden; }
+  .token-explainer-toggle { padding: 14px 20px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; list-style: none; }
+  .token-explainer-toggle::-webkit-details-marker { display: none; }
+  .token-explainer-arrow { transition: transform 0.2s; font-size: 10px; }
+  details[open] .token-explainer-arrow { transform: rotate(180deg); }
+  .token-explainer-body { padding: 0 20px 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .token-types-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .token-type { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; }
+  .token-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+  .token-explainer-example { background: var(--bg); border-radius: 10px; padding: 12px 16px; font-size: 12.5px; margin-bottom: 12px; }
+  .token-explainer-tip { background: #EEF2FF; border-radius: 10px; padding: 12px 16px; font-size: 12.5px; color: #4338CA; }
+  .token-explainer-tip code { background: rgba(99,102,241,0.12); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  [data-theme="dark"] .token-explainer-full { background: var(--white); border-color: var(--border); }
+  [data-theme="dark"] .token-explainer-example { background: var(--bg); }
+  [data-theme="dark"] .token-explainer-tip { background: #1E1B4B; color: #A5B4FC; }
+  [data-theme="dark"] .token-explainer-tip code { background: rgba(165,180,252,0.15); color: #C7D2FE; }
+  @media (max-width: 640px) { .token-types-grid { grid-template-columns: 1fr; } }
+
+  /* Share */
+  .share-btn { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--white); color: var(--text-secondary); font: 500 13px Inter, system-ui; cursor: pointer; transition: all 0.15s; }
+  .share-btn:hover { border-color: var(--indigo); color: var(--indigo); }
+  .share-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 24px; }
+  .share-modal { background: var(--white); border-radius: 16px; padding: 24px; max-width: 680px; width: 100%; box-shadow: var(--shadow-lg); }
+  .share-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .share-modal-title { font: 600 16px Inter, system-ui; color: var(--text); }
+  .share-modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-tertiary); padding: 0 4px; }
+  .share-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .share-actions button { padding: 8px 20px; border-radius: 8px; font: 500 13px Inter, system-ui; cursor: pointer; transition: all 0.15s; }
+  .share-download-btn { background: var(--indigo); color: white; border: none; }
+  .share-download-btn:hover { background: #4F46E5; }
+  .share-close-btn { background: var(--white); color: var(--text-secondary); border: 1px solid var(--border); }
+  .share-close-btn:hover { border-color: var(--text-tertiary); }
+  [data-theme="dark"] .share-modal { background: var(--white); border: 1px solid var(--border); }
+  [data-theme="dark"] .share-btn { background: var(--white); border-color: var(--border); }
 
   /* ---- SECTION HEADINGS ---- */
   .section-header {
@@ -711,6 +740,13 @@
   [data-theme="dark"] .section-icon-sessions svg { stroke: #4ADE80; }
   [data-theme="dark"] .section-icon-projects { background: linear-gradient(135deg, #4C1D95, #6D28D9) !important; }
   [data-theme="dark"] .section-icon-projects svg { stroke: #C4B5FD; }
+  .warnings-banner { background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #92400E; line-height: 1.5; }
+  .warnings-banner-icon { flex-shrink: 0; font-size: 16px; }
+  .warnings-banner-list { flex: 1; }
+  .warnings-banner-close { background: none; border: none; cursor: pointer; color: #92400E; font-size: 18px; padding: 0 4px; line-height: 1; opacity: 0.6; }
+  .warnings-banner-close:hover { opacity: 1; }
+  [data-theme="dark"] .warnings-banner { background: #422006; border-color: #92400E; color: #FDE68A; }
+  [data-theme="dark"] .warnings-banner-close { color: #FDE68A; }
 </style>
 </head>
 <body>
@@ -732,6 +768,8 @@
     &#128274; All data stays on your machine. Nothing is sent anywhere.
   </div>
 
+  <div id="warningsBanner"></div>
+
   <!-- Header -->
   <div class="header animate">
     <div class="header-left">
@@ -741,6 +779,10 @@
       <h1>Claude Spend</h1>
     </div>
     <div class="header-right">
+      <button class="share-btn" onclick="openShareModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        Share
+      </button>
       <button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode"></button>
       <div class="date-filter">
         <input type="date" id="filterFrom" title="From date" onchange="applyDateFilter()">
@@ -764,9 +806,35 @@
 
   <!-- Stats -->
   <div class="stats-row" id="statsRow"></div>
-  <div id="tokenExplainer" class="token-explainer animate delay-2">
-    Tokens are how AI measures text -- roughly 1 token = 1 word. Hover over any label with a <span class="help-icon">?</span> for an explanation.
-  </div>
+  <details id="tokenExplainer" class="token-explainer-full animate delay-2">
+    <summary class="token-explainer-toggle">How Claude Code tokens work <span class="token-explainer-arrow">&#9662;</span></summary>
+    <div class="token-explainer-body">
+      <div class="token-types-grid">
+        <div class="token-type">
+          <span class="token-dot" style="background:var(--indigo)"></span>
+          <strong>Input tokens</strong> — What Claude reads: your message plus the full conversation history, re-sent every turn.
+        </div>
+        <div class="token-type">
+          <span class="token-dot" style="background:var(--rose)"></span>
+          <strong>Cache write tokens</strong> — First time Claude sees a block of context, it's cached for reuse. Costs 25% more than base input.
+        </div>
+        <div class="token-type">
+          <span class="token-dot" style="background:var(--amber)"></span>
+          <strong>Cache read tokens</strong> — When cached context is reused in later turns. 90% cheaper than base input — this is where caching saves money.
+        </div>
+        <div class="token-type">
+          <span class="token-dot" style="background:var(--teal)"></span>
+          <strong>Output tokens</strong> — What Claude writes back: code, explanations, tool calls. Usually the smallest portion.
+        </div>
+      </div>
+      <div class="token-explainer-example">
+        <strong>Example:</strong> In a 20-turn conversation, turn 1 might use 5K tokens. By turn 20, Claude re-reads all 19 prior turns plus your new message — easily 200K+ tokens. That's why long conversations get expensive fast.
+      </div>
+      <div class="token-explainer-tip">
+        <strong>Tip:</strong> Use <code>/clear</code> when switching tasks within a conversation. It resets context so you stop paying to re-read unrelated history.
+      </div>
+    </div>
+  </details>
 
   <!-- Insights -->
   <div id="insightsSection" class="insights-section" style="display:none">
@@ -785,8 +853,10 @@
       <h3 class="has-tooltip has-tooltip-below" style="display:inline-block">Tokens per Day<div class="tooltip">How many tokens you used each day. Taller bars mean heavier usage days. The indigo portion is what Claude read, the teal is what Claude wrote.</div></h3>
       <canvas id="dailyChart"></canvas>
       <div class="legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--indigo)"></div> Read by Claude (your messages + context)</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div> Written by Claude (responses)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--indigo)"></div> Base Input</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Cache Writes</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#06B6D4"></div> Cache Reads</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div> Output</div>
       </div>
     </div>
     <div class="chart-card">
@@ -842,6 +912,10 @@
       </div>
       <button class="drilldown-close" onclick="closeDrilldown()">&times;</button>
     </div>
+    <div id="drilldownChartWrap" style="padding:0 20px 12px">
+      <canvas id="drilldownCostCanvas" style="width:100%;border-radius:8px"></canvas>
+    </div>
+    <div id="drilldownInsight" style="display:none;margin:0 20px 16px;padding:10px 14px;border-radius:10px;font-size:12.5px;line-height:1.5;display:flex;align-items:flex-start;gap:8px"></div>
     <div id="queryList" class="query-list"></div>
   </div>
 
@@ -878,6 +952,20 @@
 
   <div class="footer">
     Made with <a href="https://claude.ai/code" target="_blank">Claude Code</a> and &#10084; by <a href="https://www.linkedin.com/in/aniketparihar/" target="_blank">Aniket</a>
+  </div>
+</div>
+
+<div id="shareOverlay" class="share-overlay" onclick="if(event.target===this)closeShareModal()">
+  <div class="share-modal">
+    <div class="share-modal-header">
+      <div class="share-modal-title">Share Your Stats</div>
+      <button class="share-modal-close" onclick="closeShareModal()">&times;</button>
+    </div>
+    <div id="sharePreview"></div>
+    <div class="share-actions">
+      <button class="share-download-btn" onclick="downloadShareCard()">Download PNG</button>
+      <button class="share-close-btn" onclick="closeShareModal()">Close</button>
+    </div>
   </div>
 </div>
 </main>
@@ -1055,12 +1143,16 @@ function getChartColors() {
 }
 
 function fmt(n) {
+  if (n == null || isNaN(n)) return '0';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 10_000) return (n / 1_000).toFixed(0) + 'K';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return n.toLocaleString();
 }
-function fmtFull(n) { return n.toLocaleString(); }
+function fmtFull(n) {
+  if (n == null || isNaN(n)) return '0';
+  return n.toLocaleString();
+}
 function fmtCost(n) {
   if (n >= 100) return '$' + n.toFixed(0);
   if (n >= 10) return '$' + n.toFixed(1);
@@ -1214,6 +1306,7 @@ function render() {
     badge.style.display = 'none'; // all live, nothing extra from archive
   }
 
+  renderWarnings();
   renderStats();
   renderInsights();
   renderDailyChart();
@@ -1224,6 +1317,16 @@ function render() {
 }
 
 // Stats
+function renderWarnings() {
+  const el = document.getElementById('warningsBanner');
+  const warnings = DATA.warnings || [];
+  if (!warnings.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<span class="warnings-banner-icon">&#9888;</span><div class="warnings-banner-list">' +
+    warnings.map(w => escapeHtml(w.message)).join('<br>') +
+    '</div><button class="warnings-banner-close" onclick="this.parentElement.style.display=\'none\'">&times;</button>';
+}
+
 function renderStats() {
   const d = getFilteredData();
   const t = d.totals;
@@ -1279,246 +1382,6 @@ function renderInsights() {
   }).join('');
 }
 
-// Daily chart
-function renderDailyChart() {
-  const canvas = document.getElementById('dailyChart');
-  const ctx = canvas.getContext('2d');
-  const data = getFilteredData().dailyUsage;
-  if (!data.length) { ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
-
-  const dpr = window.devicePixelRatio || 1;
-  const w = canvas.parentElement.clientWidth - 48;
-  const h = 200;
-  canvas.width = w * dpr; canvas.height = h * dpr;
-  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, w, h);
-
-  const c = getChartColors();
-  const maxTotal = Math.max(...data.map(d => d.totalTokens));
-  const barW = Math.max(8, Math.min(32, (w - 52) / data.length - 3));
-  const gap = 3;
-  const chartH = h - 36;
-  const startX = 48;
-
-  // Grid
-  ctx.font = '500 10px Inter, system-ui';
-  ctx.fillStyle = c.axisText;
-  ctx.textAlign = 'right';
-  for (let i = 0; i <= 4; i++) {
-    const val = (maxTotal / 4) * i;
-    const y = chartH - (chartH * i / 4) + 8;
-    ctx.fillText(fmt(val), startX - 10, y + 3);
-    ctx.strokeStyle = c.gridLine; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(w, y); ctx.stroke();
-  }
-
-  // Bars with gradient
-  const inGrad = ctx.createLinearGradient(0, chartH + 8, 0, 0);
-  inGrad.addColorStop(0, '#818CF8'); inGrad.addColorStop(1, '#6366F1');
-  const outGrad = ctx.createLinearGradient(0, chartH + 8, 0, 0);
-  outGrad.addColorStop(0, '#2DD4BF'); outGrad.addColorStop(1, '#14B8A6');
-
-  data.forEach((d, i) => {
-    const x = startX + i * (barW + gap);
-    const baseY = chartH + 8;
-    const r = Math.min(4, barW / 2);
-
-    const outH = (d.outputTokens / maxTotal) * chartH;
-    if (outH > 0) {
-      ctx.fillStyle = outGrad;
-      ctx.beginPath(); roundedRect(ctx, x, baseY - outH, barW, outH, r); ctx.fill();
-    }
-
-    const inH = (d.inputTokens / maxTotal) * chartH;
-    if (inH > 0) {
-      ctx.fillStyle = inGrad;
-      ctx.beginPath(); roundedRect(ctx, x, baseY - outH - inH, barW, inH, r); ctx.fill();
-    }
-  });
-
-  // X labels
-  ctx.fillStyle = c.axisText; ctx.textAlign = 'center';
-  ctx.font = '500 10px Inter, system-ui';
-  const step = Math.max(1, Math.floor(data.length / 7));
-  data.forEach((d, i) => {
-    if (i % step === 0 || i === data.length - 1) {
-      const x = startX + i * (barW + gap) + barW / 2;
-      ctx.fillText(formatDate(d.date), x, chartH + 24);
-    }
-  });
-}
-
-function roundedRect(ctx, x, y, w, h, r) {
-  if (h <= 0) return;
-  r = Math.min(r, h / 2, w / 2);
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-// Model donut
-function renderModelChart() {
-  const canvas = document.getElementById('modelChart');
-  const ctx = canvas.getContext('2d');
-  const data = getFilteredData().modelBreakdown;
-  if (!data.length) { ctx.clearRect(0, 0, canvas.width, canvas.height); document.getElementById('modelLegend').innerHTML = ''; return; }
-
-  const dpr = window.devicePixelRatio || 1;
-  const size = Math.min(180, canvas.parentElement.clientWidth - 48);
-  canvas.width = size * dpr; canvas.height = size * dpr;
-  canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
-  ctx.scale(dpr, dpr);
-
-  const c = getChartColors();
-  const cx = size/2, cy = size/2, r = size/2 - 6, innerR = r * 0.6;
-  const total = data.reduce((s, d) => s + d.totalTokens, 0);
-
-  const modelColors = { opus: ['#6366F1','#818CF8'], sonnet: ['#10B981','#34D399'], haiku: ['#F97316','#FB923C'] };
-  function getColors(m) {
-    for (const [k, c] of Object.entries(modelColors)) { if (m.includes(k)) return c; }
-    return ['#94A3B8','#CBD5E1'];
-  }
-
-  let angle = -Math.PI / 2;
-  const slices = [...data].sort((a, b) => b.totalTokens - a.totalTokens);
-
-  slices.forEach(d => {
-    const sa = (d.totalTokens / total) * Math.PI * 2;
-    const [c1, c2] = getColors(d.model);
-    const grad = ctx.createConicGradient(angle, cx, cy);
-    grad.addColorStop(0, c1); grad.addColorStop(1, c2);
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, angle, angle + sa);
-    ctx.arc(cx, cy, innerR, angle + sa, angle, true);
-    ctx.closePath();
-    ctx.fillStyle = c1;
-    ctx.fill();
-
-    // Gap between slices
-    ctx.strokeStyle = c.donutGap; ctx.lineWidth = 2; ctx.stroke();
-    angle += sa;
-  });
-
-  ctx.fillStyle = c.centerText; ctx.textAlign = 'center';
-  ctx.font = '800 17px Inter, system-ui';
-  ctx.fillText(fmt(total), cx, cy + 2);
-  ctx.font = '500 10px Inter, system-ui';
-  ctx.fillStyle = c.centerSub;
-  ctx.fillText('total', cx, cy + 16);
-
-  document.getElementById('modelLegend').innerHTML = slices.map(d => {
-    const pct = ((d.totalTokens / total) * 100).toFixed(1);
-    const cost = d.costWithCache != null ? ' &ndash; ' + fmtCost(d.costWithCache) : '';
-    return `<div class="legend-item">
-      <div class="legend-dot" style="background:${getColors(d.model)[0]}"></div>
-      <span><strong>${modelLabel(d.model)}</strong> &ndash; ${fmt(d.totalTokens)} (${pct}%)${cost}</span>
-    </div>`;
-  }).join('');
-}
-
-// Project accordion
-function toggleProjectDrawer(i) {
-  const row = document.getElementById('proj-row-' + i);
-  const drawer = document.getElementById('proj-drawer-' + i);
-  const isOpen = drawer.classList.contains('open');
-  row.classList.toggle('expanded', !isOpen);
-  drawer.classList.toggle('open', !isOpen);
-}
-
-function buildDrawerContent(p) {
-  if (!p.topPrompts || p.topPrompts.length === 0) {
-    return '<div class="drawer-empty">No prompt data available</div>';
-  }
-  const items = p.topPrompts.map((pr, i) => {
-    const toolEntries = Object.entries(pr.toolCounts || {}).sort((a, b) => b[1] - a[1]);
-    const chips = toolEntries.map(([name, count]) =>
-      '<span class="tool-chip">' + count + '\u00d7\u00a0' + escapeHtml(name) + '</span>'
-    ).join('') + (pr.continuations > 0 ? '<span class="tool-chip">+' + pr.continuations + ' turns</span>' : '');
-    const badge = '<span class="model-badge ' + modelClass(pr.model) + '"><span class="model-dot"></span>' + modelLabel(pr.model) + '</span>';
-    const tokVal = fmt(pr.totalTokens);
-    const tokSub = fmt(pr.inputTokens) + ' / ' + fmt(pr.outputTokens);
-    const promptText = escapeHtml(pr.prompt);
-    const sid = pr.sessionId;
-    return [
-      '<div class="drawer-prompt-row" onclick="openDrilldown(\'' + sid + '\')">',
-      '<div class="drawer-rank">' + (i + 1) + '</div>',
-      '<div>',
-      '<div class="drawer-prompt-text">' + promptText + '</div>',
-      '<div class="drawer-prompt-meta">' + badge + chips + '</div>',
-      '</div>',
-      '<div class="drawer-tokens"><div class="value">' + tokVal + '</div><div class="sub">' + tokSub + '</div></div>',
-      '</div>',
-    ].join('');
-  });
-  return '<div class="drawer-prompt-list">' + items.join('') + '</div>';
-}
-
-// Project breakdown
-function renderProjectBreakdown() {
-  const projects = getFilteredData().projectBreakdown;
-  if (!projects || !projects.length) return;
-
-  const countEl = document.getElementById('projectsCount');
-  countEl.textContent = projects.length + ' project' + (projects.length === 1 ? '' : 's');
-
-  const maxTokens = projects[0].totalTokens;
-  const chevron = '<svg class="proj-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l4 4-4 4"/></svg>';
-  const rows = [];
-  projects.forEach((p, i) => {
-    const barPct = (p.totalTokens / maxTokens * 100).toFixed(1);
-    const ariaLabel = p.modelBreakdown.map(m => modelLabel(m.model) + ': ' + fmt(m.inputTokens) + ' input, ' + fmt(m.outputTokens) + ' output, ' + (m.userPromptCount || 0) + ' prompts').join(', ');
-    const gridItems = p.modelBreakdown.map(m =>
-      '<span class="model-grid-name ' + modelClass(m.model) + '" style="background:none;padding:0;border-radius:0">' +
-        '<span class="model-dot" aria-hidden="true"></span>' + modelLabel(m.model) +
-      '</span>' +
-      '<span class="model-grid-val">' + fmtCost(m.costWithCache) + '</span>' +
-      '<span class="model-grid-val"><span class="sr-only">in </span>' + fmt(m.inputTokens) + ' <span aria-hidden="true">\u2193</span></span>' +
-      '<span class="model-grid-val"><span class="sr-only">out </span>' + fmt(m.outputTokens) + ' <span aria-hidden="true">\u2191</span></span>' +
-      '<span class="model-grid-prompts">' + (m.userPromptCount || 0) + ' prompts</span>'
-    ).join('');
-    const summaryRow = [
-      '<tr class="proj-row" id="proj-row-' + i + '" onclick="toggleProjectDrawer(' + i + ')">',
-      '<td style="padding:10px 16px">',
-      '<div style="display:flex;align-items:center;gap:6px">',
-      chevron,
-      '<div>',
-      '<div class="proj-name" title="' + projectFull(p.project) + '">' + escapeHtml(projectShort(p.project)) + '</div>',
-      '<div class="model-grid" aria-label="Models used: ' + ariaLabel + '">' + gridItems + '</div>',
-      '</div></div></td>',
-      '<td class="token-num" style="font-weight:700;vertical-align:top;padding-top:12px">' +
-      '<div>' + fmtCost(p.costWithCache) + '</div>' +
-      '<div style="font-size:11px;font-weight:500;color:var(--text-tertiary);margin-top:1px">' + fmtCost(p.costWithoutCache) + ' w/o cache</div>' +
-      '</td>',
-      '<td class="token-num" style="font-weight:700;vertical-align:top;padding-top:12px">',
-      '<div style="display:flex;align-items:center;gap:8px;justify-content:flex-end">',
-      '<div style="flex:1;max-width:60px;height:3px;background:var(--bg);border-radius:4px;overflow:hidden">',
-      '<div style="width:' + barPct + '%;height:100%;background:var(--indigo);border-radius:4px"></div>',
-      '</div><div><div>' + fmt(p.totalTokens) + '</div><div style="font-size:11px;font-weight:500;color:var(--text-tertiary);margin-top:1px">' + fmt(p.inputTokens) + ' in\u00a0\u00b7\u00a0' + fmt(p.outputTokens) + ' out</div></div></div></td>',
-      '<td class="token-num" style="vertical-align:top;padding-top:12px">' + p.sessionCount + '</td>',
-      '<td class="token-num" style="vertical-align:top;padding-top:12px">' + p.queryCount + '</td>',
-      '<td class="token-num" style="vertical-align:top;padding-top:12px">' + p.userPromptCount + '</td>',
-      '</tr>',
-    ].join('');
-    const drawerRow = [
-      '<tr class="proj-drawer" id="proj-drawer-' + i + '">',
-      '<td colspan="6"><div class="proj-drawer-inner"><div class="proj-drawer-content">',
-      buildDrawerContent(p),
-      '</div></div></td></tr>',
-    ].join('');
-    rows.push(summaryRow, drawerRow);
-  });
-  document.getElementById('projectsBody').innerHTML = rows.join('');
-}
-
 // Top prompts
 function renderTopPrompts() {
   const prompts = getFilteredData().topPrompts;
@@ -1545,204 +1408,6 @@ function renderTopPrompts() {
   }).join('');
 }
 
-// Sessions (note: all data is locally parsed from user's own JSONL files, no untrusted input)
-function renderSessions() {
-  let sessions = [...getFilteredData().sessions];
-  if (searchQuery) {
-    const q = searchQuery.toLowerCase();
-    sessions = sessions.filter(s =>
-      s.firstPrompt.toLowerCase().includes(q) ||
-      s.model.toLowerCase().includes(q) ||
-      projectShort(s.project).toLowerCase().includes(q)
-    );
-  }
-
-  const sortFns = {
-    date: (a, b) => (a.timestamp || '').localeCompare(b.timestamp || ''),
-    prompt: (a, b) => a.firstPrompt.localeCompare(b.firstPrompt),
-    model: (a, b) => a.model.localeCompare(b.model),
-    queries: (a, b) => a.queryCount - b.queryCount,
-    total: (a, b) => a.totalTokens - b.totalTokens,
-    input: (a, b) => a.inputTokens - b.inputTokens,
-    output: (a, b) => a.outputTokens - b.outputTokens,
-  };
-  const fn = sortFns[currentSort.key] || sortFns.total;
-  sessions.sort((a, b) => currentSort.dir === 'desc' ? fn(b, a) : fn(a, b));
-
-  const totalPages = Math.max(1, Math.ceil(sessions.length / PAGE_SIZE));
-  if (currentPage > totalPages) currentPage = totalPages;
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const paged = sessions.slice(start, start + PAGE_SIZE);
-
-  document.getElementById('sessionCount').textContent =
-    sessions.length <= PAGE_SIZE
-      ? `${sessions.length} sessions`
-      : `${start + 1}\u2013${Math.min(start + PAGE_SIZE, sessions.length)} of ${sessions.length} sessions`;
-
-  const tbody = document.getElementById('sessionsBody');
-  tbody.textContent = '';
-  for (const s of paged) {
-    const tr = document.createElement('tr');
-    tr.addEventListener('click', () => openDrilldown(s.sessionId));
-
-    const tdDate = document.createElement('td');
-    tdDate.className = 'date-cell';
-    tdDate.textContent = formatDate(s.date);
-    const projSpan = document.createElement('span');
-    projSpan.className = 'project-tag';
-    projSpan.title = projectShort(s.project);
-    projSpan.textContent = projectShort(s.project);
-    tdDate.appendChild(projSpan);
-    tr.appendChild(tdDate);
-
-    const tdPrompt = document.createElement('td');
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'prompt-preview';
-    promptDiv.title = s.firstPrompt;
-    promptDiv.textContent = s.firstPrompt;
-    tdPrompt.appendChild(promptDiv);
-    tr.appendChild(tdPrompt);
-
-    const tdModel = document.createElement('td');
-    const badge = document.createElement('span');
-    badge.className = 'model-badge ' + modelClass(s.model);
-    badge.title = s.model;
-    const dot = document.createElement('span');
-    dot.className = 'model-dot';
-    badge.appendChild(dot);
-    badge.appendChild(document.createTextNode(modelLabel(s.model)));
-    tdModel.appendChild(badge);
-    tr.appendChild(tdModel);
-
-    const addNumCell = (val, bold) => {
-      const td = document.createElement('td');
-      td.className = 'token-num';
-      if (bold) td.style.fontWeight = '700';
-      td.textContent = typeof val === 'number' ? fmt(val) : val;
-      tr.appendChild(td);
-    };
-    addNumCell(s.queryCount, false);
-    addNumCell(s.totalTokens, true);
-    addNumCell(s.inputTokens, false);
-    addNumCell(s.outputTokens, false);
-
-    tbody.appendChild(tr);
-  }
-
-  renderPagination(totalPages);
-}
-
-function renderPagination(totalPages) {
-  let el = document.getElementById('sessionsPagination');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'sessionsPagination';
-    el.className = 'sessions-pagination';
-    document.getElementById('sessionsBody').closest('.sessions-card').after(el);
-  }
-  el.textContent = '';
-  if (totalPages <= 1) return;
-
-  const pages = [];
-  const addPage = (n) => { if (!pages.includes(n)) pages.push(n); };
-  addPage(1);
-  for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) addPage(i);
-  addPage(totalPages);
-  pages.sort((a, b) => a - b);
-
-  const makeBtn = (text, page, disabled, active) => {
-    const btn = document.createElement('button');
-    btn.className = 'page-btn' + (active ? ' active' : '');
-    btn.textContent = text;
-    btn.disabled = disabled;
-    if (!disabled) btn.addEventListener('click', () => goPage(page));
-    el.appendChild(btn);
-  };
-
-  makeBtn('\u2039', currentPage - 1, currentPage === 1, false);
-  let prev = 0;
-  for (const p of pages) {
-    if (p - prev > 1) {
-      const dots = document.createElement('span');
-      dots.className = 'page-ellipsis';
-      dots.textContent = '\u2026';
-      el.appendChild(dots);
-    }
-    makeBtn(String(p), p, false, p === currentPage);
-    prev = p;
-  }
-  makeBtn('\u203A', currentPage + 1, currentPage === totalPages, false);
-}
-
-function goPage(n) {
-  currentPage = n;
-  renderSessions();
-  document.querySelector('.sessions-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// Sort
-document.querySelectorAll('.sessions-table th[data-sort]').forEach(th => {
-  th.addEventListener('click', () => {
-    const key = th.dataset.sort;
-    if (currentSort.key === key) { currentSort.dir = currentSort.dir === 'desc' ? 'asc' : 'desc'; }
-    else { currentSort = { key, dir: 'desc' }; }
-    document.querySelectorAll('.sessions-table th').forEach(t => t.classList.remove('sorted'));
-    th.classList.add('sorted');
-    renderSessions();
-  });
-});
-
-document.getElementById('searchInput').addEventListener('input', e => {
-  searchQuery = e.target.value;
-  currentPage = 1;
-  renderSessions();
-});
-
-// Drill-down
-function openDrilldown(sessionId) {
-  const session = DATA.sessions.find(s => s.sessionId === sessionId);
-  if (!session) return;
-
-  document.getElementById('drilldownTitle').textContent = session.firstPrompt.substring(0, 140);
-  document.getElementById('drilldownMeta').textContent =
-    `${formatDate(session.date)} \u00B7 ${modelLabel(session.model)} \u00B7 ${session.queryCount} messages \u00B7 ${fmt(session.totalTokens)} tokens used`;
-
-  const grouped = [];
-  let current = null;
-  for (const q of session.queries) {
-    if (q.userPrompt) {
-      if (current) grouped.push(current);
-      current = { prompt: q.userPrompt, inputTokens: q.inputTokens, outputTokens: q.outputTokens, totalTokens: q.totalTokens, continuations: 0 };
-    } else if (current) {
-      current.inputTokens += q.inputTokens;
-      current.outputTokens += q.outputTokens;
-      current.totalTokens += q.totalTokens;
-      current.continuations++;
-    }
-  }
-  if (current) grouped.push(current);
-
-  document.getElementById('queryList').innerHTML = grouped.map((q, i) => {
-    const cont = q.continuations > 0 ? ` + ${q.continuations} tool uses` : '';
-    return `<div class="query-item">
-      <div class="query-num">${i + 1}</div>
-      <div class="query-prompt">${escapeHtml(q.prompt.substring(0, 500))}</div>
-      <div class="query-tokens-col">
-        <div class="total">${fmt(q.totalTokens)}</div>
-        <div class="detail">${fmt(q.inputTokens)} read / ${fmt(q.outputTokens)} written${cont}</div>
-      </div>
-    </div>`;
-  }).join('');
-
-  const panel = document.getElementById('drilldown');
-  panel.classList.add('open');
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function closeDrilldown() {
-  document.getElementById('drilldown').classList.remove('open');
-}
-
 const SUN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const MOON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
 
@@ -1761,5 +1426,11 @@ updateThemeIcon();
 fetchData();
 window.addEventListener('resize', () => { if (DATA) { renderDailyChart(); renderModelChart(); } });
 </script>
+<script src="js/charts.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/sessions.js"></script>
+<script src="js/drilldown.js"></script>
+<script src="js/share.js"></script>
+<script>initSessionsListeners();</script>
 </body>
 </html>

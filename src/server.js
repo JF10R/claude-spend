@@ -1,5 +1,12 @@
 const express = require('express');
 const path = require('path');
+
+function friendlyError(err) {
+  if (err.code === 'ENOENT') return { status: 404, message: 'Claude Code data directory not found. Have you used Claude Code yet?' };
+  if (err.code === 'EPERM' || err.code === 'EACCES') return { status: 403, message: 'Permission denied reading Claude Code data. Check file permissions on ~/.claude/' };
+  return { status: 500, message: err.message };
+}
+
 function createServer() {
   const app = express();
 
@@ -13,7 +20,8 @@ function createServer() {
       }
       res.json(cachedData);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      const { status, message } = friendlyError(err);
+      res.status(status).json({ error: message });
     }
   });
 
@@ -30,7 +38,8 @@ function createServer() {
       res.write(`data: ${JSON.stringify({ stage: 'done' })}\n\n`);
       res.end();
     } catch (err) {
-      res.write(`data: ${JSON.stringify({ stage: 'error', message: err.message })}\n\n`);
+      const { message } = friendlyError(err);
+      res.write(`data: ${JSON.stringify({ stage: 'error', message })}\n\n`);
       res.end();
     }
   });
@@ -41,7 +50,8 @@ function createServer() {
       cachedData = await require('./parser').parseAllSessions();
       res.json({ ok: true, sessions: cachedData.sessions.length });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      const { status, message } = friendlyError(err);
+      res.status(status).json({ error: message });
     }
   });
 
