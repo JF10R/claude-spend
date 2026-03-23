@@ -1,5 +1,7 @@
 // pricing.js — Shared client-side pricing (single source of truth)
-// Mirrors FAMILY_PRICING from parser.js. Values are $ per 1M tokens.
+// Uses current-gen rates (opus 4.5+, sonnet 4+, haiku 4.5). Values are $ per 1M tokens.
+// Note: server-side parser.js has version-level pricing (e.g. opus-4.1 at $15 vs opus-4.6 at $5).
+// Client uses family-level only; legacy model costs will be approximate in filtered views.
 
 const CLIENT_PRICING = {
   opus:   { baseInput: 5,    cacheWrite: 6.25, cacheRead: 0.50, output: 25 },

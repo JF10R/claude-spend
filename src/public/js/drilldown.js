@@ -4,7 +4,7 @@
 
 // Pricing loaded from js/pricing.js — clientComputeCost() → {withCache, withoutCache}
 
-function renderDrilldownCostChart(grouped) {
+function renderDrilldownCostChart(grouped, costStats) {
   const canvas = document.getElementById('drilldownCostCanvas');
   if (!canvas || grouped.length < 3) {
     if (canvas) canvas.style.display = 'none';
@@ -23,8 +23,7 @@ function renderDrilldownCostChart(grouped) {
   ctx.clearRect(0, 0, w, h);
 
   const c = getChartColors();
-  const costs = grouped.map(g => g.cost);
-  const maxCost = Math.max.apply(null, costs);
+  const { costs, maxCost, median, maxIdx } = costStats;
   if (maxCost <= 0) { canvas.style.display = 'none'; return; }
 
   const padL = 55, padR = 16, padT = 16, padB = 28;
@@ -85,11 +84,8 @@ function renderDrilldownCostChart(grouped) {
     ctx.fill();
   });
 
-  // Find inflection (most expensive turn if > 3x median)
-  const sortedCosts = costs.slice().sort((a, b) => a - b);
-  const median = sortedCosts[Math.floor(sortedCosts.length / 2)];
-  const maxIdx = costs.indexOf(Math.max.apply(null, costs));
-  if (maxIdx > 0 && costs[maxIdx] > median * 3 && costs[maxIdx] > 0.01) {
+  // Inflection line at most expensive turn if > 3x median
+  if (maxIdx > 0 && maxCost > median * 3 && maxCost > 0.01) {
     // Vertical dashed inflection line
     ctx.strokeStyle = '#F43F5E';
     ctx.lineWidth = 1.5;
@@ -119,16 +115,11 @@ function renderDrilldownCostChart(grouped) {
   }
 }
 
-function renderDrilldownInsight(grouped) {
+function renderDrilldownInsight(grouped, costStats) {
   const el = document.getElementById('drilldownInsight');
   if (!el || grouped.length < 3) { if (el) el.style.display = 'none'; return; }
 
-  const costs = grouped.map(g => g.cost);
-  const sortedCosts = costs.slice().sort((a, b) => a - b);
-  const median = sortedCosts[Math.floor(sortedCosts.length / 2)];
-  const maxCost = Math.max.apply(null, costs);
-  const maxIdx = costs.indexOf(maxCost);
-  const avgCost = costs.reduce((a, b) => a + b, 0) / costs.length;
+  const { costs, median, maxCost, maxIdx, avgCost } = costStats;
 
   let html, bg, icon;
 
@@ -211,9 +202,20 @@ function openDrilldown(sessionId) {
     </div>`;
   }).join('');
 
+  // Precompute cost stats once for both chart + insight
+  const costs = grouped.map(g => g.cost);
+  const sortedCosts = costs.slice().sort((a, b) => a - b);
+  const costStats = {
+    costs,
+    median: sortedCosts[Math.floor(sortedCosts.length / 2)],
+    maxCost: Math.max(...costs),
+    maxIdx: costs.indexOf(Math.max(...costs)),
+    avgCost: costs.length ? costs.reduce((a, b) => a + b, 0) / costs.length : 0,
+  };
+
   const panel = document.getElementById('drilldown');
-  renderDrilldownCostChart(grouped);
-  renderDrilldownInsight(grouped);
+  renderDrilldownCostChart(grouped, costStats);
+  renderDrilldownInsight(grouped, costStats);
   panel.classList.add('open');
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

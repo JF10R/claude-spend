@@ -154,9 +154,7 @@ function renderModelChart() {
 
   slices.forEach(d => {
     const sa = (d.totalTokens / total) * Math.PI * 2;
-    const [c1, c2] = getColors(d.model);
-    const grad = ctx.createConicGradient(angle, cx, cy);
-    grad.addColorStop(0, c1); grad.addColorStop(1, c2);
+    const [c1] = getColors(d.model);
 
     ctx.beginPath();
     ctx.arc(cx, cy, r, angle, angle + sa);

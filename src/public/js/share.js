@@ -83,7 +83,7 @@ function generateShareImage() {
     // Card background
     ctx.fillStyle = 'rgba(30,41,59,0.6)';
     ctx.beginPath();
-    roundedRectPath(ctx, x, y, colW - 20, rowH - 20, 12);
+    roundedRect(ctx, x, y, colW - 20, rowH - 20, 12);
     ctx.fill();
 
     // Label
@@ -120,18 +120,7 @@ function generateShareImage() {
   return canvas;
 }
 
-function roundedRectPath(ctx, x, y, w, h, r) {
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
+// roundedRect() loaded from charts.js (shared canvas helper)
 
 function wrapText(ctx, text, maxWidth, maxLines) {
   var words = text.split(' ');

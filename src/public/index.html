@@ -915,7 +915,7 @@
     <div id="drilldownChartWrap" style="padding:0 20px 12px">
       <canvas id="drilldownCostCanvas" style="width:100%;border-radius:8px"></canvas>
     </div>
-    <div id="drilldownInsight" style="display:none;margin:0 20px 16px;padding:10px 14px;border-radius:10px;font-size:12.5px;line-height:1.5;display:flex;align-items:flex-start;gap:8px"></div>
+    <div id="drilldownInsight" style="display:none;margin:0 20px 16px;padding:10px 14px;border-radius:10px;font-size:12.5px;line-height:1.5;align-items:flex-start;gap:8px"></div>
     <div id="queryList" class="query-list"></div>
   </div>
 
@@ -982,9 +982,14 @@ let filterTo = null;
 
 // Pricing loaded from js/pricing.js — clientComputeCost(model, base, cacheWrite, cacheRead, output) → {withCache, withoutCache}
 
+let _filteredCache = null;
+let _filteredKey = null;
 function getFilteredData() {
   if (!DATA) return DATA;
   if (!filterFrom && !filterTo) return DATA;
+
+  const key = filterFrom + '|' + filterTo;
+  if (_filteredCache && _filteredKey === key) return _filteredCache;
 
   const from = filterFrom || '0000-00-00';
   const to = filterTo || '9999-99-99';
@@ -1090,7 +1095,9 @@ function getFilteredData() {
     dateRange: DATA.totals.dateRange
   };
 
-  return { sessions, dailyUsage, modelBreakdown, projectBreakdown, topPrompts, totals, insights: DATA.insights };
+  _filteredCache = { sessions, dailyUsage, modelBreakdown, projectBreakdown, topPrompts, totals, insights: DATA.insights };
+  _filteredKey = key;
+  return _filteredCache;
 }
 
 function applyDateFilter() {
@@ -1136,9 +1143,9 @@ function fmtFull(n) {
   return n.toLocaleString();
 }
 function fmtCost(n) {
+  if (n == null || isNaN(n)) return '$0';
   if (n >= 100) return '$' + n.toFixed(0);
   if (n >= 10) return '$' + n.toFixed(1);
-  if (n >= 1) return '$' + n.toFixed(2);
   if (n >= 0.01) return '$' + n.toFixed(2);
   return '<$0.01';
 }
