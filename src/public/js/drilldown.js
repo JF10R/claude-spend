@@ -2,21 +2,7 @@
 // Session drilldown panel: open/close individual session details.
 // Depends on globals: DATA, fmt, formatDate, escapeHtml, modelLabel, fmtCost, getChartColors
 
-// Simplified client-side cost estimation (mirrors parser.js computeCost)
-// Uses approximate pricing per 1M tokens for common model families
-const DRILLDOWN_PRICING = {
-  'opus':   { input: 15.00, cacheWrite: 18.75, cacheRead: 1.50, output: 75.00 },
-  'sonnet': { input: 3.00,  cacheWrite: 3.75,  cacheRead: 0.30, output: 15.00 },
-  'haiku':  { input: 0.80,  cacheWrite: 1.00,  cacheRead: 0.08, output: 4.00 },
-};
-
-function clientComputeCost(model, baseInput, cacheWrite, cacheRead, output) {
-  let family = 'sonnet'; // default
-  if (model && model.includes('opus')) family = 'opus';
-  else if (model && model.includes('haiku')) family = 'haiku';
-  const p = DRILLDOWN_PRICING[family];
-  return (baseInput * p.input + cacheWrite * p.cacheWrite + cacheRead * p.cacheRead + output * p.output) / 1000000;
-}
+// Pricing loaded from js/pricing.js — clientComputeCost() → {withCache, withoutCache}
 
 function renderDrilldownCostChart(grouped) {
   const canvas = document.getElementById('drilldownCostCanvas');
@@ -209,7 +195,7 @@ function openDrilldown(sessionId) {
   if (current) grouped.push(current);
 
   grouped.forEach(g => {
-    g.cost = clientComputeCost(g.model, g.baseInputTokens, g.cacheWriteTokens, g.cacheReadTokens, g.outputTokens);
+    g.cost = clientComputeCost(g.model, g.baseInputTokens, g.cacheWriteTokens, g.cacheReadTokens, g.outputTokens).withCache;
   });
 
   document.getElementById('queryList').innerHTML = grouped.map((g, i) => {

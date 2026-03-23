@@ -980,25 +980,7 @@ let showModelVersion = true;
 let filterFrom = null;
 let filterTo = null;
 
-// Client-side cost computation (mirrors parser.js computeCost + pricing)
-const _costPricing = {
-  opus: { baseInput: 5, cacheWrite: 6.25, cacheRead: 0.50, output: 25 },
-  sonnet: { baseInput: 3, cacheWrite: 3.75, cacheRead: 0.30, output: 15 },
-  haiku: { baseInput: 1, cacheWrite: 1.25, cacheRead: 0.10, output: 5 },
-};
-function _clientGetPricing(model) {
-  const m = model.toLowerCase();
-  if (m.includes('opus')) return _costPricing.opus;
-  if (m.includes('sonnet')) return _costPricing.sonnet;
-  if (m.includes('haiku')) return _costPricing.haiku;
-  return _costPricing.sonnet;
-}
-function _clientComputeCost(model, baseInput, cacheWrite, cacheRead, output) {
-  const p = _clientGetPricing(model);
-  const withCache = (baseInput * p.baseInput + cacheWrite * p.cacheWrite + cacheRead * p.cacheRead + output * p.output) / 1_000_000;
-  const withoutCache = ((baseInput + cacheWrite + cacheRead) * p.baseInput + output * p.output) / 1_000_000;
-  return { withCache, withoutCache };
-}
+// Pricing loaded from js/pricing.js — clientComputeCost(model, base, cacheWrite, cacheRead, output) → {withCache, withoutCache}
 
 function getFilteredData() {
   if (!DATA) return DATA;
@@ -1026,7 +1008,7 @@ function getFilteredData() {
     }
   }
   const modelBreakdown = Object.values(modelMap).map(m => {
-    const cost = _clientComputeCost(m.model, m.baseInputTokens, m.cacheWriteTokens, m.cacheReadTokens, m.outputTokens);
+    const cost = clientComputeCost(m.model, m.baseInputTokens, m.cacheWriteTokens, m.cacheReadTokens, m.outputTokens);
     return { ...m, costWithCache: cost.withCache, costWithoutCache: cost.withoutCache };
   }).sort((a, b) => b.totalTokens - a.totalTokens);
 
@@ -1063,7 +1045,7 @@ function getFilteredData() {
   }
   const projectBreakdown = Object.values(projMap).sort((a, b) => b.totalTokens - a.totalTokens).map(p => {
     const mbd = Object.values(p.modelMap).map(m => {
-      const cost = _clientComputeCost(m.model, m.baseInputTokens, m.cacheWriteTokens, m.cacheReadTokens, m.outputTokens);
+      const cost = clientComputeCost(m.model, m.baseInputTokens, m.cacheWriteTokens, m.cacheReadTokens, m.outputTokens);
       return { ...m, costWithCache: cost.withCache, costWithoutCache: cost.withoutCache };
     }).sort((a, b) => b.totalTokens - a.totalTokens);
     const costWith = mbd.reduce((s, m) => s + m.costWithCache, 0);
@@ -1426,6 +1408,7 @@ updateThemeIcon();
 fetchData();
 window.addEventListener('resize', () => { if (DATA) { renderDailyChart(); renderModelChart(); } });
 </script>
+<script src="js/pricing.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/projects.js"></script>
 <script src="js/sessions.js"></script>
