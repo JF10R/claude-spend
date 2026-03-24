@@ -7,7 +7,8 @@
     "claude-spend": "src/index.js"
   },
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "dev": "node --watch --watch-path=src src/index.js --no-open"
   },
   "keywords": [
     "claude",
@@ -26,7 +27,7 @@
     "url": "https://github.com/writetoaniketparihar-collab/claude-spend.git"
   },
   "dependencies": {
-    "express": "^4.21.0",
-    "open": "^10.1.0"
+    "express": "^5.0.0",
+    "open": "^11.0.0"
   }
 }
