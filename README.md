@@ -48,6 +48,11 @@ This fork adds the following on top of the [upstream](https://github.com/writeto
 - **Pagination** — paginated session list for large histories
 - **Loading Progress** — streaming progress bar during initial parse
 - **Dynamic Pricing** — auto-fetches latest model pricing from Anthropic; caches for 7 days
+- **Updated Dependencies** — Express 5, open 11 (requires Node 20+)
+
+## Requirements
+
+- Node.js 20 or later
 
 ## Options
 
