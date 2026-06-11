@@ -143,7 +143,7 @@ function renderModelChart() {
   const cx = size/2, cy = size/2, r = size/2 - 6, innerR = r * 0.6;
   const total = data.reduce((s, d) => s + d.totalTokens, 0);
 
-  const modelColors = { opus: ['#6366F1','#818CF8'], sonnet: ['#10B981','#34D399'], haiku: ['#F97316','#FB923C'] };
+  const modelColors = { fable: ['#EC4899','#F472B6'], opus: ['#6366F1','#818CF8'], sonnet: ['#10B981','#34D399'], haiku: ['#F97316','#FB923C'] };
   function getColors(m) {
     for (const [k, c] of Object.entries(modelColors)) { if (m.includes(k)) return c; }
     return ['#94A3B8','#CBD5E1'];

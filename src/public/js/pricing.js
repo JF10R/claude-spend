@@ -1,16 +1,18 @@
 // pricing.js — Shared client-side pricing (single source of truth)
-// Uses current-gen rates (opus 4.5+, sonnet 4+, haiku 4.5). Values are $ per 1M tokens.
+// Uses current-gen rates (fable 5, opus 4.5+, sonnet 4+, haiku 4.5). Values are $ per 1M tokens.
 // Note: server-side parser.js has version-level pricing (e.g. opus-4.1 at $15 vs opus-4.6 at $5).
 // Client uses family-level only; legacy model costs will be approximate in filtered views.
 
 const CLIENT_PRICING = {
-  opus:   { baseInput: 5,    cacheWrite: 6.25, cacheRead: 0.50, output: 25 },
-  sonnet: { baseInput: 3,    cacheWrite: 3.75, cacheRead: 0.30, output: 15 },
-  haiku:  { baseInput: 1,    cacheWrite: 1.25, cacheRead: 0.10, output: 5  },
+  fable:  { baseInput: 10,   cacheWrite: 12.50, cacheRead: 1.00, output: 50 },
+  opus:   { baseInput: 5,    cacheWrite: 6.25,  cacheRead: 0.50, output: 25 },
+  sonnet: { baseInput: 3,    cacheWrite: 3.75,  cacheRead: 0.30, output: 15 },
+  haiku:  { baseInput: 1,    cacheWrite: 1.25,  cacheRead: 0.10, output: 5  },
 };
 
 function clientGetPricing(model) {
   const m = (model || '').toLowerCase();
+  if (m.includes('fable')) return CLIENT_PRICING.fable;
   if (m.includes('opus')) return CLIENT_PRICING.opus;
   if (m.includes('haiku')) return CLIENT_PRICING.haiku;
   return CLIENT_PRICING.sonnet; // default

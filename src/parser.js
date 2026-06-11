@@ -167,6 +167,9 @@ function extractSessionData(entries, projectDir) {
 // Pricing: $ per million tokens
 // Keyed by "family-major.minor" — getPricing() extracts this from model IDs
 const VERSION_PRICING = {
+  'fable-5':    { baseInput: 10, cacheWrite: 12.50, cacheRead: 1.00, output: 50 },
+  'opus-4.8':   { baseInput: 5,  cacheWrite: 6.25,  cacheRead: 0.50, output: 25 },
+  'opus-4.7':   { baseInput: 5,  cacheWrite: 6.25,  cacheRead: 0.50, output: 25 },
   'opus-4.6':   { baseInput: 5,  cacheWrite: 6.25,  cacheRead: 0.50, output: 25 },
   'opus-4.5':   { baseInput: 5,  cacheWrite: 6.25,  cacheRead: 0.50, output: 25 },
   'opus-4.1':   { baseInput: 15, cacheWrite: 18.75, cacheRead: 1.50, output: 75 },
@@ -184,6 +187,7 @@ const VERSION_PRICING = {
 
 // Fallback pricing by family
 const FAMILY_PRICING = {
+  fable:  { baseInput: 10, cacheWrite: 12.50, cacheRead: 1.00, output: 50 },
   opus:   { baseInput: 15, cacheWrite: 18.75, cacheRead: 1.50, output: 75 },
   sonnet: { baseInput: 3,  cacheWrite: 3.75,  cacheRead: 0.30, output: 15 },
   haiku:  { baseInput: 1,  cacheWrite: 1.25,  cacheRead: 0.10, output: 5 },
@@ -235,7 +239,7 @@ function fetchPricingFromWeb() {
 function parsePricingHtml(html) {
   const models = {};
   // Match HTML table rows: <td>Claude Opus 4.6</td><td>$5 / MTok</td>...
-  const rowRe = /<td[^>]*>\s*Claude\s+(Opus|Sonnet|Haiku)\s+([\d.]+)\s*(?:<[^>]*>)*(?:\(deprecated\))?\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>/gi;
+  const rowRe = /<td[^>]*>\s*Claude\s+(Opus|Sonnet|Haiku|Fable)\s+([\d.]+)\s*(?:<[^>]*>)*(?:\(deprecated\))?\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>\s*<td[^>]*>\s*\$([\d.]+)\s*\/\s*MTok\s*<\/td>/gi;
   let match;
   while ((match = rowRe.exec(html)) !== null) {
     const family = match[1].toLowerCase();
@@ -251,7 +255,7 @@ function parsePricingHtml(html) {
   }
   // Also try markdown pipe format as fallback
   if (Object.keys(models).length === 0) {
-    const mdRe = /\|\s*Claude\s+(Opus|Sonnet|Haiku)\s+([\d.]+)[^|]*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|/gi;
+    const mdRe = /\|\s*Claude\s+(Opus|Sonnet|Haiku|Fable)\s+([\d.]+)[^|]*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|\s*\$([\d.]+)\s*\/\s*MTok\s*\|/gi;
     while ((match = mdRe.exec(html)) !== null) {
       const family = match[1].toLowerCase();
       const version = match[2];
@@ -286,8 +290,11 @@ function getPricing(model) {
 }
 
 function modelToKey(model) {
+  // Fable family: claude-fable-5[-date] — single version number, no minor
+  let m = model.match(/(?:claude-)?fable-(\d+)/i);
+  if (m) return 'fable-' + m[1];
   // New format: claude-{family}-{major}-{minor}[-date]
-  let m = model.match(/(?:claude-)?(opus|sonnet|haiku)-(\d+)-(\d+)/i);
+  m = model.match(/(?:claude-)?(opus|sonnet|haiku)-(\d+)-(\d+)/i);
   if (m) {
     const key = m[1].toLowerCase() + '-' + m[2] + '.' + m[3];
     // Check it's not a date suffix (6+ digit minor = date)
