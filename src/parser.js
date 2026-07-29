@@ -290,8 +290,12 @@ function getPricing(model) {
 }
 
 function modelToKey(model) {
-  // Fable family: claude-fable-5[-date] — single version number, no minor
-  let m = model.match(/(?:claude-)?fable-(\d+)/i);
+  // Fable family: claude-fable-{major}[-{minor}][-date]. Fable 5 is the first
+  // generation (no minor version), but future releases (e.g. Fable 5.2) may
+  // follow the family-major.minor pattern used by opus/sonnet/haiku below.
+  let m = model.match(/(?:claude-)?fable-(\d+)-(\d+)/i);
+  if (m && m[2].length < 6) return 'fable-' + m[1] + '.' + m[2];
+  m = model.match(/(?:claude-)?fable-(\d+)/i);
   if (m) return 'fable-' + m[1];
   // New format: claude-{family}-{major}-{minor}[-date]
   m = model.match(/(?:claude-)?(opus|sonnet|haiku)-(\d+)-(\d+)/i);

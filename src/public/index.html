@@ -537,11 +537,13 @@
   }
   .model-badge:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
   /* Contrast-corrected badge colors (WCAG AA compliant) */
+  .model-fable { background: #FDF2F8; color: #9D174D; }
   .model-opus { background: #EEF2FF; color: #3730A3; }
   .model-sonnet { background: #ECFDF5; color: #047857; }
   .model-haiku { background: #FFF7ED; color: #C2410C; }
   .model-unknown { background: #F1F5F9; color: #475569; }
   .model-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .model-fable .model-dot { background: #EC4899; }
   .model-opus .model-dot { background: #4F46E5; }
   .model-sonnet .model-dot { background: #10B981; }
   .model-haiku .model-dot { background: #F97316; }
@@ -727,6 +729,7 @@
   [data-theme="dark"] .query-item:hover { background: rgba(255,255,255,0.08); }
   [data-theme="dark"] .drilldown-close:hover { background: #1E2A5E; color: var(--indigo); }
   [data-theme="dark"] .privacy-notice { background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.2); }
+  [data-theme="dark"] .model-fable  { background: #4A1942; color: #F9A8D4; }
   [data-theme="dark"] .model-opus   { background: #1E2A5E; color: #A5B4FC; }
   [data-theme="dark"] .model-sonnet { background: #0D2E1F; color: #4EE993; }
   [data-theme="dark"] .model-haiku  { background: #2A1A0A; color: #FBBF24; }
@@ -1152,15 +1155,23 @@ function fmtCost(n) {
 }
 
 function modelClass(m) {
+  if (m.includes('fable')) return 'model-fable';
   if (m.includes('opus')) return 'model-opus';
   if (m.includes('sonnet')) return 'model-sonnet';
   if (m.includes('haiku')) return 'model-haiku';
   return 'model-unknown';
 }
 function modelShort(m) {
+  // Fable format: claude-fable-{major}[-{minor}][-date]. Fable 5 is the first
+  // generation (no minor version), but future releases (e.g. Fable 5.2) may
+  // follow the major.minor pattern used by opus/sonnet/haiku below.
+  let match = m.match(/^claude-fable-(\d+)-(\d+)/i);
+  if (match && match[2].length < 6) return 'Fable ' + match[1] + '.' + match[2];
+  match = m.match(/^claude-fable-(\d+)/i);
+  if (match) return 'Fable ' + match[1];
   // New format: claude-{family}-{major}-{minor}[-date]
   // e.g. claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5-20251001
-  let match = m.match(/^claude-(opus|sonnet|haiku)-(\d+)-(\d+)/i);
+  match = m.match(/^claude-(opus|sonnet|haiku)-(\d+)-(\d+)/i);
   if (match) {
     const name = match[1].charAt(0).toUpperCase() + match[1].slice(1);
     return name + ' ' + match[2] + '.' + match[3];
@@ -1177,12 +1188,14 @@ function modelShort(m) {
     const name = match[2].charAt(0).toUpperCase() + match[2].slice(1);
     return name + ' ' + match[1];
   }
+  if (m.includes('fable')) return 'Fable';
   if (m.includes('opus')) return 'Opus';
   if (m.includes('sonnet')) return 'Sonnet';
   if (m.includes('haiku')) return 'Haiku';
   return m;
 }
 function modelFamily(m) {
+  if (m.includes('fable')) return 'Fable';
   if (m.includes('opus')) return 'Opus';
   if (m.includes('sonnet')) return 'Sonnet';
   if (m.includes('haiku')) return 'Haiku';
